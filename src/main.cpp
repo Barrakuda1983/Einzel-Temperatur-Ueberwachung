@@ -172,9 +172,9 @@ void setup() {
 
 void loop() {
 
-// Temperaturen abfragen und in die Matrix speichern
+  // Temperaturen abfragen und in die Matrix speichern
   abfrageTemperaturen();
-  // Beispiel: Temperaturen ausgeben
+  // Temperaturen ausgeben
   serielprintTemperatur();
   
   delay(5000); // Pause von 1 Sekunde (oder passen Sie die Verzögerung an, wie es für Ihre Anwendung geeignet ist)
