@@ -1,5 +1,5 @@
 /*  Code von M3S7t
-    zur Abfrage von Temperatur-Sensoren DS18B20 für eine Kondensator-Temperatur-Überwachung
+    Dient der Abfrage von Temperatur-Sensoren DS18B20 für eine Kondensator-Temperatur-Überwachung
     Abgefragt werden die Sensoren der einzelenen Kondensatoren, in Summe 68 Stück.
     Genutzt wurden die Libarys "paulstoffregen/OneWire@^2.3.8" "milesburton/DallasTemperature @ ^3.11.0"
     Als Microcontroller soll ein Arduino Mega 2560 verwendet. 
@@ -7,7 +7,7 @@
     Bei Zugriff via Seriel-Com-Port >> Flow-Control auf DSR/DTR stellen
     um ein Reset des Programms, zur Ermittlung des auslösenden Sensors, zu verhinden
     
-    Aufbau Kompensation
+    Aufbau der Kompensationstation Siemens AN2.3MW
     ____________________________________
     | C1.1 | C1.2 | C1.3 | C1.4 | C1.5 |   Stufe 01 (Klein)
     ____________________________________
