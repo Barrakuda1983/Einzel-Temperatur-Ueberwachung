@@ -30,18 +30,18 @@
 #include <DallasTemperature.h>
 
 int inputBus[] = {2, 3, 4, 5, 6, 7, 8, 9};                                  // Input Pins der einzelnen Stufen
+float temperaturSchwelle = 24;                                              // Temperaturschwelle zur Auslösung
 const uint8_t AnzahlInputStufen = sizeof(inputBus) / sizeof(inputBus[0]);   // autoamtisiserte Ermittlung der Sensoreingänge 
 const uint8_t AnzahlSensorenStufeKlein  = 5;                                // Anzahl Sensoren Stufe 01
 const uint8_t AnzahlSensorenStufe       = 6;                                // Anzahl Sensoren Stufe 02 - 08
 const uint8_t relaisOutput = 10; 
 uint8_t diffSensoren = 0;                                                   // Variable zm halten der Anzahl der Sensorabweichung Stufe 1 vs. 2 - 8                                            
-float temperaturSchwelle = 24;                                              // Temperaturschwelle zur Auslösung
-bool schwelleUeberschritten = false;        
+bool schwelleUeberschritten = false;  
+bool runCheckTemperatur = true;                                             // Run Temperaturcheck bzw, stop bei Auslösung
 uint8_t angesprocheneStufe = 0;                                             // Stufe welche auf Temp.-Schwelle angesprochen hat
 uint8_t angesprochenerSensor = 0;                                           // Sensor welche auf Temp.-Schwelle angesprochen hat
 float angesprocheneTemp = 0;                                                // Temperatur bei Auslösung
-bool runCheckTemperatur = true;                                             // Run Temperaturcheck bzw, stop bei Auslösung
-
+                                         
 float temperatureMatrix[AnzahlInputStufen][AnzahlSensorenStufe];            // Matrix für aktuelle Sensor-Temperaturen
 float lastTemperatureMatrix[AnzahlInputStufen][AnzahlSensorenStufe];        // Matrix zur Sensorkontrolle
 
@@ -232,6 +232,14 @@ void ueberprüfungSensoren() {
 
 }
 */
+
+/*
+void einstellungTempSchwelle() {
+    - Input 3x per Dipschalter = 2³ = 8 Möglichkeiten = [60°C; 65°C; 70°C; 75°C; 80°C; 85°C; 90°C; 95°C;]
+    - Änderung "float temperaturSchwelle = xx;"
+}
+*/
+
 
 //-------------------------------------------------------------------------------------------------
 // Ende Funktionen
