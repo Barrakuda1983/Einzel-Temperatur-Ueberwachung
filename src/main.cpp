@@ -57,7 +57,7 @@ DallasTemperature sensor[AnzahlInputStufen];
 //-------------------------------------------------------------------------------------------------
 // Funktionen
 
-void sucheSensorAdresse() {
+void printSensorAdresse() {
   Serial.println();
   Serial.println("...Suche nach Temperatur-Sensoren...");
   Serial.println();
@@ -257,7 +257,7 @@ void setup() {
   }
 
   // Adressenbestimmung der Sensoren
-  sucheSensorAdresse();
+  printSensorAdresse();
 
   // Funktion "speicherSensorAdresse()" bur bei Hardware mit mehr als 16k SRAM aktivieren
   // speicherSensorAdresse();
