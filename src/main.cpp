@@ -4,6 +4,8 @@
     Genutzt wurden die Libarys "paulstoffregen/OneWire@^2.3.8" "milesburton/DallasTemperature @ ^3.11.0"
     Als Microcontroller soll ein Arduino Mega 2560 verwendet. 
     (Optional wäre auch ein Uno möglich)
+    Bei Zugriff via Seriel-Com-Port >> Flow-Control auf DSR/DTR stellen
+    um ein Reset des Programms, zur Ermittlung des auslösenden Sensors, zu verhinden
     
     Aufbau Kompensation
     ____________________________________
@@ -33,12 +35,12 @@ const uint8_t AnzahlSensorenStufeKlein  = 5;                                // A
 const uint8_t AnzahlSensorenStufe       = 6;                                // Anzahl Sensoren Stufe 02 - 08
 uint8_t diffSensoren = 0;                                                   // Variable zm halten der Anzahl der Sensorabweichung Stufe 1 vs. 2 - 8                                            
 const uint8_t relaisOutput = 10;                                        
-float temperaturSchwelle = 19.50;                                           // Temperaturschwelle zur Auslösung
+float temperaturSchwelle = 21;                                              // Temperaturschwelle zur Auslösung
 bool schwelleUeberschritten = false;        
-int angesprocheneStufe = 0;       
-int angesprochenerSensor = 0;
+uint8_t angesprocheneStufe = 0;       
+uint8_t angesprochenerSensor = 0;
 float angesprocheneTemp = 0;
-bool stopCheckTemperatur = true;
+bool runCheckTemperatur = true;
 
 String matrixAdressen[AnzahlInputStufen][AnzahlSensorenStufe];              // Matrix für Sensoradressen
 float temperatureMatrix[AnzahlInputStufen][AnzahlSensorenStufe];            // Matrix für aktuelle Sensor-Temperaturen
@@ -82,25 +84,11 @@ void sucheSensorAdresse() {
           if (sensorAdresse[k] < 16) matrixAdressen[i][j] += String("0");
           matrixAdressen[i][j] += String(sensorAdresse[k],HEX); 
         }
-
       Serial.println();
     }
   }
 }
 
-
-/*
-void ueberprüfungSensoren() {
-
-  - Anzahl Sensoren je Stufe = 5x / 9x
-  - Adressen vergleichen >> jede Adresse !=
-  - Temperaturen vergleichen >> in zweites Array (current / last) kopieren
-  - Abgleich alle 10min ob Temperatur-Änderung je Sensor erfolgt
-    >> Wenn 1x oder mehrer Sensoren den gleichen Wert aufweisen, Variable (uint32_t nutzen) erhöhen
-    >> Warnmeldung ab gewisser Schwelle auslösen / Stufe und Sensor speichern und ausgeben. Warn-LED?
-
-}
-*/
 
 void abfrageTemperaturen() {
 for (int i = 0; i < AnzahlInputStufen; i++) {
@@ -119,9 +107,9 @@ else diffSensoren = AnzahlSensorenStufe;
 
 void serialPrint() {
   Serial.println();
-  Serial.print("---Die Temperaturschwelle zur Ausloesung liegt bei: ");
+  Serial.print(" ---Die Temperaturschwelle zur Ausloesung liegt bei: ");
   Serial.print(temperaturSchwelle);
-  Serial.println(" °C---");
+  Serial.println(" °C--- ");
   Serial.println();
   Serial.print("Die aktuell gemessenen Temperaturen sind:");
 
@@ -136,7 +124,7 @@ void serialPrint() {
   else diffSensoren = AnzahlSensorenStufe;
 
     for (int j = 0; j < diffSensoren; j++) {
-      Serial.print("Sen. ");
+      Serial.print("Sensor ");
       Serial.print(j + 1);
       Serial.print(": ");
       Serial.print(temperatureMatrix[i][j]);
@@ -168,12 +156,13 @@ void checkTemperatur() {
     else diffSensoren = AnzahlSensorenStufe;
 
     for (uint8_t j = 0; j < diffSensoren; j++) {
-      if ( temperatureMatrix[i][j] > temperaturSchwelle) {
+      if ( temperatureMatrix[i][j] > temperaturSchwelle ) {
         schwelleUeberschritten = true;
+        if (runCheckTemperatur)
         angesprocheneStufe = i + 1;
         angesprochenerSensor = j + 1;
         angesprocheneTemp = temperatureMatrix[i][j];
-        stopCheckTemperatur = false;
+        runCheckTemperatur = false;                     // Abschalten der checkTemperatur-Funktion um den Auslösewerte zu behalten.
       }
     }
   }
@@ -193,13 +182,26 @@ void checkAusloesungRelais() {
 
 }
 
+/*
+void ueberprüfungSensoren() {
+
+  - Anzahl Sensoren je Stufe = 5x / 9x
+  - Adressen vergleichen >> jede Adresse !=
+  - Temperaturen vergleichen >> in zweites Array (current / last) kopieren
+  - Abgleich alle 10min ob Temperatur-Änderung je Sensor erfolgt
+    >> Wenn 1x oder mehrer Sensoren den gleichen Wert aufweisen, Variable (uint32_t nutzen) erhöhen
+    >> Warnmeldung ab gewisser Schwelle auslösen / Stufe und Sensor speichern und ausgeben. Warn-LED?
+
+}
+*/
 
 //-------------------------------------------------------------------------------------------------
+// Ende Funktionen
 
-
+// setup wuird nur beim Programm-Start ausgeführt
 void setup() {
+  if (runCheckTemperatur) pinMode(relaisOutput, OUTPUT);
   Serial.begin(9600);
-  pinMode(relaisOutput, OUTPUT);
 
   // Jeden OneWire-Bus und die zugehörigen DallasTemperature-Sensor initialisieren
   for (int i = 0; i < AnzahlInputStufen; i++) {
@@ -207,18 +209,19 @@ void setup() {
     sensor[i] = DallasTemperature(&oneWireBus[i]);
     sensor[i].begin();
   }
-
+  
   // Adressenbestimmung der Sensoren
   sucheSensorAdresse();
 }
 
+// Programm in Schleife
 void loop() {
 
   // Temperaturen abfragen und in die Matrix speichern
   abfrageTemperaturen();
 
   // Abgleich der gemessen Temperaturen mit festgelegter Temperaturschwelle wenn noch nicht ausgelöst
-  if ( stopCheckTemperatur ) {
+  if ( runCheckTemperatur ) {
   checkTemperatur();
   }
   // Check wenn Schwelle überschritten Ansteuerung Relaisausgang
@@ -228,5 +231,4 @@ void loop() {
   serialPrint();
   
   delay(3000); // Pause von x Sekunden (von 1 Sekunde nach oben angepasst werden)
-
 }
