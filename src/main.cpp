@@ -28,18 +28,25 @@
 #include <DallasTemperature.h>
 
 int inputBus[] = {2, 3, 4, 5, 6, 7, 8, 9};                                  // Input Pins der einzelnen Stufen
-const uint8_t AnzahlInputBus = sizeof(inputBus) / sizeof(inputBus[0]);
+const uint8_t AnzahlInputStufen = sizeof(inputBus) / sizeof(inputBus[0]);   // autoamtisiserte Ermittlung der Sensoreingänge 
 const uint8_t AnzahlSensorenStufeKlein  = 5;                                // Anzahl Sensoren Stufe 01
 const uint8_t AnzahlSensorenStufe       = 6;                                // Anzahl Sensoren Stufe 02 - 08
-uint8_t differenzStufen = 0;
+uint8_t diffSensoren = 0;                                                   // Variable zm halten der Anzahl der Sensorabweichung Stufe 1 vs. 2 - 8                                            
+const uint8_t relaisOutput = 10;                                        
+float temperaturSchwelle = 19.50;                                           // Temperaturschwelle zur Auslösung
+bool schwelleUeberschritten = false;        
+int angesprocheneStufe = 0;       
+int angesprochenerSensor = 0;
+float angesprocheneTemp = 0;
+bool stopCheckTemperatur = true;
 
-String matrixAdressen[AnzahlInputBus][AnzahlSensorenStufe];
-float temperatureMatrix[AnzahlInputBus][AnzahlSensorenStufe];
-float lastTemperatureMatrix[AnzahlInputBus][AnzahlSensorenStufe];
-int adressenKonvert[8];
+String matrixAdressen[AnzahlInputStufen][AnzahlSensorenStufe];              // Matrix für Sensoradressen
+float temperatureMatrix[AnzahlInputStufen][AnzahlSensorenStufe];            // Matrix für aktuelle Sensor-Temperaturen
+float lastTemperatureMatrix[AnzahlInputStufen][AnzahlSensorenStufe];        // Matrix zur Sensorkontrolle
+// int adressenKonvert[8];
 
-OneWire oneWireBus[AnzahlInputBus];
-DallasTemperature sensor[AnzahlInputBus];
+OneWire oneWireBus[AnzahlInputStufen];
+DallasTemperature sensor[AnzahlInputStufen];
 
 //-------------------------------------------------------------------------------------------------
 // Funktionen
@@ -50,17 +57,16 @@ void sucheSensorAdresse() {
   Serial.println();
 
   // Durchlauf durch die einzelnen Stufen
-  for (uint8_t i = 0; i < AnzahlInputBus; i++) {
+  for (uint8_t i = 0; i < AnzahlInputStufen; i++) {
     Serial.print("Adressen der Sensoren Stufe ");
     Serial.print(i + 1);
     Serial.println(":");
 
   // Überprüfung ob Stufe 1 klein abgefragt wird >> nur 5x Sensoren
-  if (i == 0) differenzStufen = AnzahlSensorenStufeKlein;
-  else differenzStufen = AnzahlSensorenStufe;    
-;
+  if (i == 0) diffSensoren = AnzahlSensorenStufeKlein;
+  else diffSensoren = AnzahlSensorenStufe;
 
-    for (uint8_t j = 0; j < differenzStufen; j++) {
+    for (uint8_t j = 0; j < diffSensoren; j++) {
       // Adresse für jeden Sensor abrufen
       DeviceAddress sensorAdresse;
      sensor[i].getAddress(sensorAdresse, j);
@@ -96,87 +102,131 @@ void ueberprüfungSensoren() {
 }
 */
 
-/*
-void ausloesungRelais() {
-
-  - Output Relais definieren 
-  - Stufe und Sensor speichern und ausgeben
-  - Auslöse-LED
-
-}
-*/
-
-
 void abfrageTemperaturen() {
-for (int i = 0; i < AnzahlInputBus; i++) {
+for (int i = 0; i < AnzahlInputStufen; i++) {
     sensor[i].requestTemperatures();  // Alle Sensoren Temperaturmessung starten
 
 // Überprüfung ob Stufe 1 (Klein) abgefragt wird >> nur 5x Sensoren
-if (i == 0) differenzStufen = AnzahlSensorenStufeKlein;
-else differenzStufen = AnzahlSensorenStufe;      
+if (i == 0) diffSensoren = AnzahlSensorenStufeKlein;
+else diffSensoren = AnzahlSensorenStufe;      
 
-    for (int j = 0; j < differenzStufen; j++) {
+    for (int j = 0; j < diffSensoren; j++) {
       // Temperatur für jeden Sensor abfragen und in die Matrix speichern
       temperatureMatrix[i][j] = sensor[i].getTempCByIndex(j);
     }
   }
 }
 
-void serielprintTemperatur() {
+void serialPrint() {
   Serial.println();
-  Serial.println("Gemessene Temperaturen:");
+  Serial.print("---Die Temperaturschwelle zur Ausloesung liegt bei: ");
+  Serial.print(temperaturSchwelle);
+  Serial.println(" °C---");
   Serial.println();
+  Serial.print("Die aktuell gemessenen Temperaturen sind:");
 
-  for (int i = 0; i < AnzahlInputBus; i++) {
+  for (int i = 0; i < AnzahlInputStufen; i++) {
+    Serial.println();
     Serial.print("Stufe ");
     Serial.print(i + 1);
-    Serial.println(":");
+    Serial.print(" >> ");
 
   // Überprüfung ob Stufe 1 (Klein) abgefragt wird >> nur 5x Sensoren
-  if (i == 0) differenzStufen = AnzahlSensorenStufeKlein;
-  else differenzStufen = AnzahlSensorenStufe;
+  if (i == 0) diffSensoren = AnzahlSensorenStufeKlein;
+  else diffSensoren = AnzahlSensorenStufe;
 
-    for (int j = 0; j < differenzStufen; j++) {
-      Serial.print("Sensor ");
+    for (int j = 0; j < diffSensoren; j++) {
+      Serial.print("Sen. ");
       Serial.print(j + 1);
       Serial.print(": ");
       Serial.print(temperatureMatrix[i][j]);
-      Serial.println(" °C");
+      Serial.print("°C | ");
+    }
+  }
+  if (schwelleUeberschritten) {
+    Serial.println();
+    Serial.println();
+    Serial.print("!!! An Stufe [");
+    Serial.print(angesprocheneStufe);
+    Serial.print("] hat Sensor [");
+    Serial.print(angesprochenerSensor);
+    Serial.print("] mit der Adresse : ");
+    Serial.print(matrixAdressen[angesprocheneStufe - 1][angesprochenerSensor - 1]);
+    Serial.print(" bei ");
+    Serial.print(angesprocheneTemp);
+    Serial.print("°C angesprochen !!!");
+    Serial.println();
+  }
+}
+
+void checkTemperatur() {
+  // Durchlauf durch die einzelnen Stufen
+  for (uint8_t i = 0; i < AnzahlInputStufen; i++) {
+
+    // Überprüfung ob Stufe 1 klein abgefragt wird >> nur 5x Sensoren
+    if (i == 0) diffSensoren = AnzahlSensorenStufeKlein;
+    else diffSensoren = AnzahlSensorenStufe;
+
+    for (uint8_t j = 0; j < diffSensoren; j++) {
+      if ( temperatureMatrix[i][j] > temperaturSchwelle) {
+        schwelleUeberschritten = true;
+        angesprocheneStufe = i + 1;
+        angesprochenerSensor = j + 1;
+        angesprocheneTemp = temperatureMatrix[i][j];
+        stopCheckTemperatur = false;
+      }
     }
   }
 }
+
+void checkAusloesungRelais() {
+
+      if ( schwelleUeberschritten ) {
+        digitalWrite(relaisOutput, HIGH);
+      }
+      else {
+        digitalWrite(relaisOutput, LOW);    
+      }
+
+  // - Stufe und Sensor speichern und ausgeben
+  // - Auslöse-LED
+
+}
+
 
 //-------------------------------------------------------------------------------------------------
 
 
 void setup() {
   Serial.begin(9600);
+  pinMode(relaisOutput, OUTPUT);
 
   // Jeden OneWire-Bus und die zugehörigen DallasTemperature-Sensor initialisieren
-  for (int i = 0; i < AnzahlInputBus; i++) {
+  for (int i = 0; i < AnzahlInputStufen; i++) {
     oneWireBus[i] = OneWire(inputBus[i]);
     sensor[i] = DallasTemperature(&oneWireBus[i]);
     sensor[i].begin();
   }
 
-  // start der Funktion zur Adressenbestimmung
+  // Adressenbestimmung der Sensoren
   sucheSensorAdresse();
-
-/*  Test-Abfrage
-    Serial.println();
-    Serial.println(matrixAdressen[0][0]);
-    Serial.println(matrixAdressen[1][1]);
-    Serial.println(matrixAdressen[7][5]);
-*/
 }
 
 void loop() {
 
   // Temperaturen abfragen und in die Matrix speichern
   abfrageTemperaturen();
+
+  // Abgleich der gemessen Temperaturen mit festgelegter Temperaturschwelle wenn noch nicht ausgelöst
+  if ( stopCheckTemperatur ) {
+  checkTemperatur();
+  }
+  // Check wenn Schwelle überschritten Ansteuerung Relaisausgang
+  checkAusloesungRelais();
+
   // Temperaturen ausgeben
-  serielprintTemperatur();
+  serialPrint();
   
-  delay(5000); // Pause von 1 Sekunde (oder passen Sie die Verzögerung an, wie es für Ihre Anwendung geeignet ist)
+  delay(3000); // Pause von x Sekunden (von 1 Sekunde nach oben angepasst werden)
 
 }
